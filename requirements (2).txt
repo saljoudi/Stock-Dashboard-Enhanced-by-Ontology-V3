@@ -1,0 +1,11 @@
+dash
+dash-bootstrap-components
+Flask
+Flask-Login
+Flask-SQLAlchemy
+yahooquery
+pandas
+numpy
+ta
+plotly
+joblib
