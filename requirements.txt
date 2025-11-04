@@ -8,5 +8,4 @@ ta
 python-dateutil
 datetime
 requests
-
 gunicorn
