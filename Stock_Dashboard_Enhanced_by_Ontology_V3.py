@@ -1,8 +1,13 @@
-import pandas as pd
-import numpy as np
-import ta
-from datetime import datetime
+import dash
+from dash import dcc, html
+from dash.dependencies import Input, Output, State
+from yahooquery import Ticker
+import plotly.graph_objs as go
+import dash_bootstrap_components as dbc
+import pandas as pd, numpy as np, ta, warnings
 from functools import lru_cache
+from datetime import datetime
+warnings.filterwarnings("ignore")
 
 class EnhancedStockAnalysisOntology:
     """
@@ -218,38 +223,145 @@ class EnhancedStockAnalysisOntology:
         vol_s, vol = self.volatility_analysis(df)
         sr_s, sr = self.support_resistance_analysis(df)
         c_s, c = self.detect_candle_patterns(df)
+        c_s = self._normalize_candles_for_summary(c_s)
         bias, conf = self.determine_overall_bias(t, m, v, vol, sr, c)
+        risks = self.risk_assessment(df, {"overall_bias": bias, "confidence_score": conf})
         if self.debug:
-            print("[DEBUG] Summary complete.")
+            print("[DEBUG] Summary complete with risk assessment.")
 
         return {
-            "trend": t_s, "momentum": m_s, "volume": v_s, "volatility": vol_s,
-            "support_resistance": sr_s, "candle_patterns": c_s,
-            "overall_bias": bias, "confidence_score": conf,
+            "trend": t_s,
+            "momentum": m_s,
+            "volume": v_s,
+            "volatility": vol_s,
+            "support_resistance": sr_s,
+            "candle_patterns": c_s,
+            "overall_bias": bias,
+            "confidence_score": conf,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "detailed_scores": {"trend": t, "momentum": m, "volume": v,
-                                "volatility": vol, "support_resistance": sr, "candle_patterns": c},
+            "detailed_scores": {
+                "trend": t, "momentum": m, "volume": v,
+                "volatility": vol, "support_resistance": sr, "candle_patterns": c
+            },
+            "risk_assessment": risks,
             "reasoning_trace": [
                 f"Trend={t}, Momentum={m}, Volume={v}, Volatility={vol}, SR={sr}, Candle={c}",
                 f"→ {bias} ({conf:.1f}% confidence)"
-            ]
+            ],
         }
+    # ------------------------------
+    # Trading Recommendations
+    # ------------------------------
+    def get_trading_recommendations(self, summary):
+        """
+        Produce human-readable trading suggestions based on ontology bias,
+        confidence, and major signals.  Output: list[str]
+        """
+        recs = []
+        bias = summary.get("overall_bias", "")
+        conf = summary.get("confidence_score", 0)
+        rsi_line = next((x for x in summary["momentum"] if "RSI" in x), "")
+        atr_line = next((x for x in summary["volatility"] if "Volatility" in x), "")
+
+        # --- Bias-driven suggestions ---
+        if "BULLISH" in bias:
+            recs.append("✅ Consider long positions or scaling into uptrend opportunities.")
+            if "STRONG" in bias:
+                recs.append("📈 Strong confirmation — trend momentum aligned across indicators.")
+        elif "BEARISH" in bias:
+            recs.append("⚠️ Bias bearish — protect profits or tighten stops on longs.")
+            recs.append("📉 Consider short setups or wait for reversal confirmation.")
+        else:
+            recs.append("⚪ Neutral conditions — stand aside or trade range boundaries.")
+
+        # --- RSI based ---
+        if "Oversold" in rsi_line:
+            recs.append("🎯 RSI oversold — watch for bullish reversal signals.")
+        elif "Overbought" in rsi_line:
+            recs.append("💢 RSI overbought — risk of pullback or profit taking.")
+
+        # --- Volatility based ---
+        if "High" in atr_line:
+            recs.append("🌪️ High volatility — use wider stops and reduce position size.")
+        elif "Low" in atr_line:
+            recs.append("🍃 Low volatility — expect range-bound price action.")
+
+        # --- Candle patterns ---
+        for p in summary.get("candle_patterns", []):
+            name = p.get("pattern", "")
+            if p.get("type") == "bullish":
+                recs.append(f"🟢 { name } supports bullish setup.")
+            elif p.get("type") == "bearish":
+                recs.append(f"🔴 { name } warns of bearish pressure.")
+
+        recs.append(f"ℹ️ Confidence level: {conf:.1f}% (based on multi-factor ontology scoring).")
+        return recs
+
+
+    # ------------------------------
+    # Risk Assessment
+    # ------------------------------
+    def risk_assessment(self, df, summary):
+        """
+        Evaluate immediate risk environment: volatility, volume, and trend strength.
+        Returns list[str]
+        """
+        risks = []
+        atr = self._safe(df, "ATR")
+        close = self._safe(df, "close")
+        adx = self._safe(df, "ADX")
+
+        if not np.isnan(atr) and not np.isnan(close):
+            atr_pct = atr / close * 100
+            if atr_pct > 6:
+                risks.append(f"⚠️ Extreme volatility ({atr_pct:.1f} %) — avoid over-leverage.")
+            elif atr_pct > 3:
+                risks.append(f"⚠️ Elevated volatility ({atr_pct:.1f} %) — moderate risk exposure.")
+            else:
+                risks.append(f"✅ Stable volatility ({atr_pct:.1f} %) — risk conditions normal.")
+
+        if not np.isnan(adx):
+            if adx > 35:
+                risks.append("⚡ Very strong trend — trades against trend risky.")
+            elif adx < 20:
+                risks.append("💤 Weak trend — range trading preferred.")
+            else:
+                risks.append("📊 Moderate trend strength — balanced risk environment.")
+
+        if not risks:
+            risks.append("ℹ️ Risk data insufficient to evaluate.")
+        return risks
+
+
+    # ------------------------------
+    # Fix: normalize candle patterns structure
+    # ------------------------------
+    def _normalize_candles_for_summary(self, patterns):
+        """Guarantee consistent list[dict] structure for summary use."""
+        normalized = []
+        for p in patterns:
+            if isinstance(p, dict):
+                normalized.append(p)
+            elif isinstance(p, str):
+                normalized.append({"pattern": p, "type": "unknown", "confidence": 0.5})
+        return normalized
+
 #!/usr/bin/env python
 # coding: utf-8
 
-import dash
-from dash import dcc, html
-from dash.dependencies import Input, Output, State
-from yahooquery import Ticker
-import plotly.graph_objs as go
-import pandas as pd
-import numpy as np
-import ta
-import dash_bootstrap_components as dbc
-import warnings
-from functools import lru_cache
-from datetime import datetime
-warnings.filterwarnings("ignore")
+# import dash
+# from dash import dcc, html
+# from dash.dependencies import Input, Output, State
+# from yahooquery import Ticker
+# import plotly.graph_objs as go
+# import pandas as pd
+# import numpy as np
+# import ta
+# import dash_bootstrap_components as dbc
+# import warnings
+# from functools import lru_cache
+# from datetime import datetime
+# warnings.filterwarnings("ignore")
 
 # ─────────────────────────────────────────────
 # Setup Dash App
@@ -675,4 +787,4 @@ def update_graphs(n_clicks, ticker, time_range, interval, analysis_mode):
 # Run app
 # ─────────────────────────────────────────────
 if __name__ == '__main__':
-    app.run_server(debug=False, port=8055)
+    app.run_server(debug=False)
