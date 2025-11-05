@@ -6,6 +6,7 @@ numpy
 yahooquery
 ta
 joblib
+rdflib
 requests
 flask
 werkzeug
