@@ -5,7 +5,8 @@ pandas
 numpy
 yahooquery
 ta
-python-dateutil
-datetime
+joblib
 requests
+flask
+werkzeug
 gunicorn
