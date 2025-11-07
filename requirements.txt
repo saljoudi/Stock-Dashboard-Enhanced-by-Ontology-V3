@@ -5,9 +5,9 @@ pandas
 numpy
 yahooquery
 ta
-joblib
 rdflib
-requests
+joblib
+owlrl
 flask
-werkzeug
+pydantic
 gunicorn
