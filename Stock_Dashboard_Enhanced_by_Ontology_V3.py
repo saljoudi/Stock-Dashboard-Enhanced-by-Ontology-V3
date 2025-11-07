@@ -1,170 +1,271 @@
 # ============================================================
-# PART 1: SETUP, CACHING, LOGGING, AND ONTOLOGY BASE CLASSES
+# PART 1: ENHANCED ONTOLOGY FOUNDATION
+# ============================================================
+#!/usr/bin/env python
+# coding: utf-8
+
+# ============================================================
+# PART 1: ENTERPRISE CONFIGURATION & ONTOLOGY FOUNDATION
 # ============================================================
 
+# ─────────────────────────────────────────────
+# STANDARD LIBRARY IMPORTS
+# ─────────────────────────────────────────────
 import os
-import dash
-import ta
-import plotly.graph_objs as go
-import dash_bootstrap_components as dbc
+import warnings
+from datetime import datetime, timedelta
+from dataclasses import dataclass, field
+from enum import Enum
+from pathlib import Path
+from typing import Dict, List, Any, Optional, Tuple
+
+# ─────────────────────────────────────────────
+# THIRD-PARTY IMPORTS
+# ─────────────────────────────────────────────
+# Data & Computation
 import pandas as pd
 import numpy as np
-import warnings
-from datetime import datetime
-from dash import dcc, html
-from dash.dependencies import Input, Output, State
-from yahooquery import Ticker
-from enum import Enum
-from dataclasses import dataclass
-from typing import Dict, List, Any
 from joblib import Memory
-from rdflib import Graph, Namespace, RDF, RDFS, Literal, URIRef
+
+# Technical Analysis
+import ta
+from yahooquery import Ticker
+
+# Semantic Web & Ontology
+from rdflib import Graph, Namespace, RDF, RDFS, OWL, Literal, URIRef, XSD
+from rdflib.namespace import DefinedNamespace
+
+# Web Dashboard
+import dash
+import dash_bootstrap_components as dbc
+from dash import dcc, html, Dash, Input, Output, State
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+
 
 # ─────────────────────────────────────────────
 # GLOBAL SETTINGS
 # ─────────────────────────────────────────────
 warnings.filterwarnings("ignore")
-pd.options.display.float_format = "{:.4f}".format
-
-# ─────────────────────────────────────────────
-# PERSISTENT DISK CACHE (Performance Enhancement)
-# ─────────────────────────────────────────────
 CACHE_DIR = "./cache_dir"
 os.makedirs(CACHE_DIR, exist_ok=True)
 memory = Memory(location=CACHE_DIR, verbose=0)
 
-# ─────────────────────────────────────────────
-# STRUCTURED LOGGER
-# ─────────────────────────────────────────────
 def log_step(message: str):
-    """
-    Console logger with timestamps and standardized prefix.
-    Creates an auditable trace of computational events — 
-    crucial for patent documentation and reproducibility.
-    """
     timestamp = datetime.now().strftime("%H:%M:%S")
     print(f"[{timestamp}] {message}")
 
 # ─────────────────────────────────────────────
-# ONTOLOGY VOCABULARY (RDF Namespaces)
+# ENHANCED ONTOLOGY VOCABULARY
 # ─────────────────────────────────────────────
 STOCK = Namespace("http://example.org/stock#")
 TECH = Namespace("http://example.org/technical#")
 MARKET = Namespace("http://example.org/market#")
+TIME = Namespace("http://example.org/time#")
+EVIDENCE = Namespace("http://example.org/evidence#")
 
 # ─────────────────────────────────────────────
-# RDF GRAPH BUILDER
+# OWL Ontology Schema (Patent-Grade)
 # ─────────────────────────────────────────────
 class StockOntologyGraph:
     """
-    Constructs and manages RDF graphs for stock analysis indicators,
-    semantic relationships, and inferred market states.
-
-    This class forms the patentable "knowledge layer" — encoding 
-    technical indicators (EMA, RSI, MACD, etc.) as ontology instances 
-    connected through logical and causal relationships.
+    Production-grade OWL ontology for financial technical analysis.
+    Features:
+    - Temporal indexing of all statements
+    - Indicator interdependencies
+    - Confidence-weighted evidence
+    - Contradiction detection
+    - Multi-hop inference paths
     """
-
+    
     def __init__(self):
         self.g = Graph()
-        self._define_schema()
-        log_step("Ontology graph schema initialized.")
-
-    # ─────────────────────────────────────────────
-    # SCHEMA DEFINITION
-    # ─────────────────────────────────────────────
-    def _define_schema(self):
-        """Defines ontology classes and properties."""
+        self._define_owl_schema()
+        log_step("OWL ontology schema initialized with temporal semantics.")
+        
+    def _define_owl_schema(self):
+        """Defines comprehensive OWL schema with inference rules."""
         self.g.bind("stock", STOCK)
         self.g.bind("tech", TECH)
         self.g.bind("market", MARKET)
-
-        # Core classes
-        self.g.add((STOCK.StockEntity, RDF.type, RDFS.Class))
-        self.g.add((STOCK.Indicator, RDF.type, RDFS.Class))
-        self.g.add((MARKET.MarketState, RDF.type, RDFS.Class))
-        self.g.add((MARKET.RiskLevel, RDF.type, RDFS.Class))
-
-        # Object/Data properties
-        self.g.add((STOCK.hasIndicator, RDF.type, RDF.Property))
-        self.g.add((STOCK.hasValue, RDF.type, RDF.Property))
-        self.g.add((STOCK.hasSignal, RDF.type, RDF.Property))
-        self.g.add((STOCK.impliesState, RDF.type, RDF.Property))
-        self.g.add((MARKET.hasRisk, RDF.type, RDF.Property))
-        self.g.add((MARKET.hasTrend, RDF.type, RDF.Property))
-        self.g.add((MARKET.hasVolatility, RDF.type, RDF.Property))
-        self.g.add((MARKET.hasVolumeProfile, RDF.type, RDF.Property))
-
-    # ─────────────────────────────────────────────
-    # INDICATOR ADDITION
-    # ─────────────────────────────────────────────
-    def add_indicator(self, symbol: str, name: str, value: float, signal: str):
+        self.g.bind("time", TIME)
+        self.g.bind("evidence", EVIDENCE)
+        
+        # Core Classes
+        for cls in [
+            STOCK.StockEntity, STOCK.Indicator, STOCK.Signal,
+            MARKET.MarketState, MARKET.RiskLevel, MARKET.TrendRegime,
+            TIME.Instant, TIME.Interval, EVIDENCE.EvidenceBundle
+        ]:
+            self.g.add((cls, RDF.type, RDFS.Class))
+            self.g.add((cls, RDF.type, OWL.Class))
+        
+        # Indicator Subclasses
+        indicator_types = {
+            TECH.TrendIndicator: ["SMA", "EMA", "ADX", "Ichimoku"],
+            TECH.MomentumIndicator: ["RSI", "MACD", "Stochastic", "CCI"],
+            TECH.VolatilityIndicator: ["ATR", "BollingerBands"],
+            TECH.VolumeIndicator: ["OBV", "VWAP", "ADL", "MFI", "CMF", "ForceIndex"]
+        }
+        
+        for parent, children in indicator_types.items():
+            self.g.add((parent, RDF.type, RDFS.Class))
+            self.g.add((parent, RDFS.subClassOf, STOCK.Indicator))
+            for child in children:
+                child_uri = TECH[child]
+                self.g.add((child_uri, RDF.type, RDFS.Class))
+                self.g.add((child_uri, RDFS.subClassOf, parent))
+        
+        # Properties
+        props = {
+            # Temporal properties
+            STOCK.atTime: (STOCK.Indicator, TIME.Instant),
+            STOCK.observedAt: (STOCK.Signal, TIME.Instant),
+            
+            # Value properties
+            STOCK.hasNumericValue: (STOCK.Indicator, XSD.float),
+            STOCK.hasSignal: (STOCK.Indicator, STOCK.Signal),
+            STOCK.hasThreshold: (STOCK.Indicator, XSD.float),
+            
+            # Causal properties
+            STOCK.impliesState: (STOCK.Indicator, MARKET.MarketState),
+            STOCK.confirms: (STOCK.Indicator, STOCK.Indicator),
+            STOCK.contradicts: (STOCK.Indicator, STOCK.Indicator),
+            STOCK.contributesTo: (STOCK.Indicator, MARKET.TrendRegime),
+            
+            # Evidence properties
+            EVIDENCE.hasConfidence: (EVIDENCE.EvidenceBundle, XSD.float),
+            EVIDENCE.hasWeight: (EVIDENCE.EvidenceBundle, XSD.float),
+            EVIDENCE.supports: (EVIDENCE.EvidenceBundle, STOCK.Indicator),
+        }
+        
+        for prop, (domain, range_val) in props.items():
+            self.g.add((prop, RDF.type, RDF.Property))
+            self.g.add((prop, RDFS.domain, domain))
+            self.g.add((prop, RDFS.range, range_val))
+            
+        # Transitive property for inference chains
+        self.g.add((STOCK.confirms, RDF.type, OWL.TransitiveProperty))
+        self.g.add((STOCK.chainedSignal, RDF.type, OWL.TransitiveProperty))
+        
+        log_step("OWL schema with 40+ classes/properties defined.")
+    
+    def add_indicator(self, symbol: str, indicator_type: str, value: float, 
+                     signal: str, confidence: float = 1.0, metadata: Dict = None) -> URIRef:
         """
-        Adds an individual indicator node (e.g., RSI, EMA) to the RDF graph.
-
+        Adds temporally-indexed indicator with confidence weighting.
+        
         Args:
-            symbol: Stock ticker symbol.
-            name: Indicator name.
-            value: Computed numeric value.
-            signal: Interpreted signal (e.g., 'bullish', 'bearish').
+            symbol: Stock ticker
+            indicator_type: Indicator class (e.g., 'RSI', 'Ichimoku')
+            value: Numeric value
+            signal: Categorical signal
+            confidence: 0.0-1.0 reliability score
+            metadata: Additional temporal/parameter context
         """
-        ind_uri = URIRef(f"{STOCK}{symbol}_{name}")
-        self.g.add((ind_uri, RDF.type, STOCK.Indicator))
-        self.g.add((ind_uri, STOCK.hasValue, Literal(round(value, 4))))
+        ts = metadata.get("timestamp") if metadata else datetime.now().isoformat()
+        ind_uri = URIRef(f"{STOCK}{symbol}_{indicator_type}_{hash(ts)}")
+        
+        # Type assertion
+        type_map = {
+            "RSI": TECH.RSI, "MACD": TECH.MACD, "Stochastic": TECH.Stochastic,
+            "CCI": TECH.CCI, "ATR": TECH.ATR, "BollingerBands": TECH.BollingerBands,
+            "OBV": TECH.OBV, "VWAP": TECH.VWAP, "Ichimoku": TECH.Ichimoku,
+            "SMA": TECH.SMA, "EMA": TECH.EMA, "ADX": TECH.ADX,
+            "MFI": TECH.MFI, "CMF": TECH.CMF, "ForceIndex": TECH.ForceIndex
+        }
+        
+        self.g.add((ind_uri, RDF.type, type_map.get(indicator_type, STOCK.Indicator)))
+        self.g.add((ind_uri, STOCK.hasNumericValue, Literal(round(float(value), 4))))
         self.g.add((ind_uri, STOCK.hasSignal, Literal(signal)))
-        log_step(f"Indicator node added: {symbol}_{name} ({signal})")
+        self.g.add((ind_uri, STOCK.atTime, Literal(ts, datatype=XSD.dateTime)))
+        
+        # Evidence bundle
+        if confidence < 1.0:
+            ev_uri = URIRef(f"{EVIDENCE}ev_{symbol}_{indicator_type}")
+            self.g.add((ev_uri, RDF.type, EVIDENCE.EvidenceBundle))
+            self.g.add((ev_uri, EVIDENCE.hasConfidence, Literal(confidence)))
+            self.g.add((ev_uri, EVIDENCE.supports, ind_uri))
+        
+        log_step(f"Indicator added: {symbol}_{indicator_type} ({signal}, conf={confidence:.2f})")
         return ind_uri
-
-    # ─────────────────────────────────────────────
-    # RELATIONSHIP LINKING
-    # ─────────────────────────────────────────────
-    def link_state(self, indicator_uri: URIRef, state: str):
-        """
-        Links indicator nodes to inferred market states.
-        Enables semantic chaining such as:
-            EMA_50 → impliesState → BullTrend
-        """
+    
+    def link_indicators(self, uri1: URIRef, uri2: URIRef, relationship: str):
+        """Creates semantic links between indicators (confirm/contradict)."""
+        prop = STOCK.confirms if relationship == "confirms" else STOCK.contradicts
+        self.g.add((uri1, prop, uri2))
+        log_step(f"Linked indicators: {uri1} → {relationship} → {uri2}")
+    
+    def link_state(self, indicator_uri: URIRef, state: str, confidence: float = 1.0):
+        """Enhanced state linking with confidence."""
         state_uri = URIRef(f"{MARKET}{state}")
         self.g.add((indicator_uri, STOCK.impliesState, state_uri))
-        log_step(f"Linked {indicator_uri} → impliesState → {state_uri}")
-
-    # ─────────────────────────────────────────────
-    # GRAPH SERIALIZATION
-    # ─────────────────────────────────────────────
+        
+        if confidence < 1.0:
+            ev_uri = URIRef(f"{EVIDENCE}ev_state_{hash(indicator_uri)}")
+            self.g.add((ev_uri, EVIDENCE.hasConfidence, Literal(confidence)))
+            self.g.add((ev_uri, EVIDENCE.supports, indicator_uri))
+        
+        log_step(f"State link: {indicator_uri} → {state} (conf={confidence:.2f})")
+    
+    def detect_contradictions(self) -> List[Tuple[URIRef, URIRef]]:
+        """Finds pairs of contradictory indicator signals."""
+        contradictions = []
+        query = """
+        SELECT ?ind1 ?ind2 WHERE {
+            ?ind1 stock:contradicts ?ind2 .
+            ?ind1 stock:hasSignal ?sig1 .
+            ?ind2 stock:hasSignal ?sig2 .
+            FILTER(?sig1 != ?sig2)
+        }
+        """
+        for row in self.g.query(query, initNs={"stock": STOCK}):
+            contradictions.append((row.ind1, row.ind2))
+        return contradictions
+    
     def serialize(self, format: str = "turtle") -> str:
-        """
-        Serializes the RDF graph to Turtle format for:
-        - Patent appendices
-        - Data audits
-        - Ontology explainability
-        """
-        turtle_data = self.g.serialize(format=format)
-        log_step(f"Ontology graph serialized ({len(turtle_data)} bytes).")
-        return turtle_data
+        """Serializes with inference closure."""
+        # Apply RDFS/OWL inference closure
+        try:
+            # Use owlrl for semantic closure if available
+            import owlrl
+            owlrl.DeductiveClosure(owlrl.OWLRL_Semantics).expand(self.g)
+        except ImportError:
+            log_step("owlrl not available, using basic serialization")
+        except Exception as e:
+            log_step(f"OWL inference error: {e}, using basic serialization")
 
-# ─────────────────────────────────────────────
-# TEST INITIALIZATION (Optional during development)
-# ─────────────────────────────────────────────
-# if __name__ == "__main__":
-#     test_graph = StockOntologyGraph()
-#     test_graph.add_indicator("AAPL", "RSI", 63.42, "bullish")
-#     test_graph.link_state(URIRef(f"{STOCK}AAPL_RSI"), "bull_trend")
-#     print(test_graph.serialize()[:600])
+        return self.g.serialize(format=format)
+
 # ============================================================
-# PART 2: ONTOLOGY-DRIVEN INFERENCE ENGINE (PATENT-GRADE)
+# PART 2: ENHANCED INFERENCE ENGINE
 # ============================================================
 
-class MarketState(Enum):
-    """Enumerated ontology concepts describing global market regime."""
-    BULL_TREND = "bull_trend"
-    BEAR_TREND = "bear_trend"
-    SIDEWAYS = "sideways"
-    VOLATILE_BREAKOUT = "volatile_breakout"
+class SignalType(Enum):
+    """Standardized signal vocabulary."""
+    BULLISH_STRONG = "bullish_strong"
+    BULLISH_MODERATE = "bullish_moderate"
+    BEARISH_STRONG = "bearish_strong"
+    BEARISH_MODERATE = "bearish_moderate"
+    NEUTRAL = "neutral"
+    OVERSOLD = "oversold"
+    OVERBOUGHT = "overbought"
+    ACCUMULATION = "accumulation"
+    DISTRIBUTION = "distribution"
+    HIGH_VOLATILITY = "high_volatility"
     LOW_VOLATILITY = "low_volatility"
 
 
+class MarketState(Enum):
+    BULL_TREND = "bull_trend"
+    BEAR_TREND = "bear_trend"
+    SIDEWAYS_CONSOLIDATION = "sideways_consolidation"
+    VOLATILE_BREAKOUT = "volatile_breakout"
+    RANGE_BOUND = "range_bound"
+
+
 class TrendDirection(Enum):
-    """Fine-grained directional semantics for trend interpretation."""
     STRONG_UP = "strong_up"
     MODERATE_UP = "moderate_up"
     NEUTRAL = "neutral"
@@ -173,7 +274,6 @@ class TrendDirection(Enum):
 
 
 class RiskLevel(Enum):
-    """Ontology enumeration for capital-exposure risk semantics."""
     VERY_LOW = "very_low"
     LOW = "low"
     MEDIUM = "medium"
@@ -181,341 +281,685 @@ class RiskLevel(Enum):
     VERY_HIGH = "very_high"
 
 
-# ─────────────────────────────────────────────
-# STRUCTURED MARKET CONTEXT (Semantic Container)
-# ─────────────────────────────────────────────
 @dataclass
 class MarketContext:
-    """
-    Container for all inferred semantic relationships.
-    This object is cached and serialized for explainability.
-    """
+    """Enhanced context with confidence scores."""
     market_state: MarketState
     trend_direction: TrendDirection
     risk_level: RiskLevel
+    confidence_score: float
     volatility_regime: str
     volume_profile: str
     support_levels: List[float]
     resistance_levels: List[float]
     ontology_graph: str
     reasoning_chain: List[str]
+    contradictions: List[Dict[str, str]]
 
 
-# ─────────────────────────────────────────────
-# ONTOLOGY-DRIVEN ANALYSIS ENGINE
-# ─────────────────────────────────────────────
 class EnhancedStockAnalysisOntology:
     """
-    Patent-grade reasoning engine that synthesizes numerical indicators
-    into ontology relationships and produces an interpretable 'MarketContext'.
-
-    This component transforms the numerical layer (TA indicators)
-    into a knowledge layer (RDF + causal reasoning).
+    Patent-grade OWL reasoning engine with:
+    - 15+ indicator extractors
+    - Weighted evidence aggregation
+    - Contradiction detection
+    - Temporal semantics
+    - Dynamic reasoning trace generation
     """
-
+    
     def __init__(self, debug: bool = False):
         self.debug = debug
-        self.version = "5.0-ontology-driven"
+        self.version = "6.0-owl-enhanced"
         self._context_cache: Dict[str, MarketContext] = {}
+        
+        # Weight configurations (tune these for sensitivity)
+        self.indicator_weights = {
+            "trend": 0.30, "momentum": 0.25, "volume": 0.20, 
+            "volatility": 0.15, "support_resistance": 0.10
+        }
 
-    # ============================================================
-    # MAIN ENTRYPOINT
-    # ============================================================
+    def _safe_get_value(self, df, column, default=0.0, index_offset=0):
+        """Safely get value from DataFrame column with fallback and historical lookback."""
+        if (column in df.columns and len(df) > abs(index_offset) and 
+            not pd.isna(df[column].iloc[index_offset])):
+            return df[column].iloc[index_offset]
+        return default
     def infer_market_context(self, symbol: str, df: pd.DataFrame) -> MarketContext:
-        """
-        Central pipeline:
-        1. Build RDF graph
-        2. Extract indicator entities
-        3. Infer MarketState / TrendDirection / RiskLevel
-        4. Generate reasoning chain (explainable audit trace)
-        """
-        cache_key = f"{symbol}_{len(df)}"
+        """Main pipeline with full indicator coverage."""
+        cache_key = f"{symbol}_{len(df)}_{df.index[-1].strftime('%Y%m%d')}"
         if cache_key in self._context_cache:
             return self._context_cache[cache_key]
-
+        
         if len(df) < 50:
             return self._default_context()
-
-        # Step 1: initialize ontology graph
+        
         graph = StockOntologyGraph()
-
-        # Step 2: extract entities for each indicator class
-        trend_entities = self._extract_trend_entities(symbol, df, graph)
-        momentum_entities = self._extract_momentum_entities(symbol, df, graph)
-        volume_entities = self._extract_volume_entities(symbol, df, graph)
-        volatility_entities = self._extract_volatility_entities(symbol, df, graph)
-
-        # Step 3: perform semantic inference
-        market_state = self._infer_market_state(trend_entities, momentum_entities, volume_entities, volatility_entities)
-        trend_direction = self._infer_trend_direction(trend_entities, momentum_entities)
-        risk_level = self._infer_risk_level(volatility_entities, trend_entities)
-        support_levels = self._calculate_support_levels(df)
-        resistance_levels = self._calculate_resistance_levels(df)
-
-        # Step 4: link ontology relationships
-        for ent_dict in [trend_entities, momentum_entities, volume_entities, volatility_entities]:
-            for uri in ent_dict.get("uris", []):
-                graph.link_state(uri, market_state.value)
-
-        # Step 5: generate human-readable reasoning trace
-        reasoning_chain = self._build_reasoning_chain(
-            symbol, market_state, trend_direction, risk_level,
-            trend_entities, momentum_entities, volume_entities,
-            volatility_entities, support_levels, resistance_levels
+        timestamp = df.index[-1].isoformat()
+        
+        # Extract ALL indicator categories
+        extracts = {
+            "trend": self._extract_trend(symbol, df, graph, timestamp),
+            "momentum": self._extract_momentum(symbol, df, graph, timestamp),
+            "volume": self._extract_volume(symbol, df, graph, timestamp),
+            "volatility": self._extract_volatility(symbol, df, graph, timestamp),
+            "ichimoku": self._extract_ichimoku(symbol, df, graph, timestamp),
+            "fibonacci": self._extract_fibonacci(symbol, df, graph, timestamp)
+        }
+        
+        # Detect contradictions early
+        contradictions = graph.detect_contradictions()
+        
+        # Weighted inference
+        market_state, state_conf = self._infer_market_state_weighted(extracts)
+        trend_direction, trend_conf = self._infer_trend_direction_weighted(extracts)
+        risk_level, risk_conf = self._infer_risk_level_weighted(extracts)
+        
+        # Aggregate confidence
+        overall_confidence = (state_conf * 0.4 + trend_conf * 0.3 + risk_conf * 0.3)
+        
+        # S/R levels
+        sr_levels = self._calculate_sr_levels(df)
+        
+        # Build dynamic reasoning trace
+        reasoning_chain = self._build_dynamic_reasoning(
+            symbol, extracts, market_state, trend_direction, risk_level,
+            contradictions, overall_confidence
         )
-
-        # Step 6: package as semantic MarketContext
+        
+        # Link all to market state
+        for category in extracts.values():
+            for uri in category.get("uris", []):
+                graph.link_state(uri, market_state.value, confidence=category.get("avg_confidence", 1.0))
+        
         context = MarketContext(
             market_state=market_state,
             trend_direction=trend_direction,
             risk_level=risk_level,
-            volatility_regime=self._classify_volatility_regime(volatility_entities),
-            volume_profile=self._classify_volume_profile(volume_entities),
-            support_levels=support_levels,
-            resistance_levels=resistance_levels,
+            confidence_score=round(overall_confidence, 3),
+            volatility_regime=extracts["volatility"]["regime"],
+            volume_profile=extracts["volume"]["profile"],
+            support_levels=sr_levels["support"],
+            resistance_levels=sr_levels["resistance"],
             ontology_graph=graph.serialize(),
-            reasoning_chain=reasoning_chain
+            reasoning_chain=reasoning_chain,
+            contradictions=[{"indicator1": str(c[0]), "indicator2": str(c[1])} for c in contradictions]
         )
-
+        
         self._context_cache[cache_key] = context
         return context
-
+    
     # ============================================================
-    # INDICATOR ENTITY EXTRACTORS
+    # COMPREHENSIVE INDICATOR EXTRACTORS
     # ============================================================
-    def _extract_trend_entities(self, symbol, df, graph):
-        """Encodes trend-based signals (SMA, ADX) into ontology triples."""
-        entities = {"uris": []}
+    
+    def _extract_trend(self, symbol, df, graph, timestamp):
+        """Enhanced trend extraction with EMAs and DI+/DI-."""
         closes = df["close"]
+        entities = {"uris": [], "signals": [], "confidences": []}
+        
+        # Moving averages with confidence scoring
+        for period, weight in [(20, 0.3), (50, 0.4), (200, 0.3)]:
+            sma = closes.rolling(period).mean().iloc[-1]
+            ema = closes.ewm(span=period).mean().iloc[-1]
+            current = closes.iloc[-1]
+            
+            # SMA signal
+            sma_signal, sma_conf = self._classify_ma_signal(current, sma)
+            sma_uri = graph.add_indicator(symbol, f"SMA_{period}", sma, sma_signal, sma_conf, 
+                                        {"timestamp": timestamp})
+            entities["uris"].append(sma_uri)
+            entities["signals"].append(sma_signal)
+            entities["confidences"].append(sma_conf * weight)
+            
+            # EMA signal (more responsive, higher weight)
+            ema_signal, ema_conf = self._classify_ma_signal(current, ema, threshold=0.015)
+            ema_uri = graph.add_indicator(symbol, f"EMA_{period}", ema, ema_signal, ema_conf,
+                                        {"timestamp": timestamp})
+            entities["uris"].append(ema_uri)
+            entities["signals"].append(ema_signal)
+            entities["confidences"].append(ema_conf * weight * 1.2)
+        
+        # ADX with directional components
+        adx_ind = ta.trend.ADXIndicator(df["high"], df["low"], df["close"])
+        adx_value = adx_ind.adx().iloc[-1]
+        di_plus = adx_ind.adx_pos().iloc[-1]
+        di_minus = adx_ind.adx_neg().iloc[-1]
+        
+        adx_strength, adx_conf = self._classify_adx(adx_value)
+        trend_strength = "strong" if adx_value > 25 else "weak"
+        
+        adx_uri = graph.add_indicator(symbol, "ADX", adx_value, adx_strength, adx_conf,
+                                    {"timestamp": timestamp})
+        entities["uris"].append(adx_uri)
+        entities["signals"].append(adx_strength)
+        entities["confidences"].append(adx_conf * 0.5)
+        
+        # DI+/- signals
+        di_signal, di_conf = "bullish" if di_plus > di_minus else "bearish", abs(di_plus - di_minus) / 100
+        di_uri = graph.add_indicator(symbol, "DI_Cross", di_plus - di_minus, di_signal, di_conf,
+                                   {"timestamp": timestamp})
+        entities["uris"].append(di_uri)
+        entities["confidences"].append(di_conf * 0.3)
+        
+        entities["avg_confidence"] = sum(entities["confidences"]) / len(entities["confidences"]) if entities["confidences"] else 0.5
+        entities["trend_strength"] = trend_strength
+        entities["di_signal"] = di_signal
+        
+        return entities
+    
+    def _extract_momentum(self, symbol, df, graph, timestamp):
+        """Complete momentum suite: RSI, MACD, Stochastic, CCI."""
+        closes = df["close"]
+        entities = {"uris": [], "signals": [], "confidences": []}
+        
+        # RSI (overbought/oversold)
+        rsi_val = ta.momentum.RSIIndicator(closes).rsi().iloc[-1]
+        rsi_signal, rsi_conf = self._classify_rsi(rsi_val)
+        rsi_uri = graph.add_indicator(symbol, "RSI", rsi_val, rsi_signal, rsi_conf,
+                                    {"timestamp": timestamp})
+        entities["uris"].append(rsi_uri)
+        entities["signals"].append(rsi_signal)
+        entities["confidences"].append(rsi_conf * 0.25)
+        
+        # MACD with histogram
+        macd_ind = ta.trend.MACD(closes)
+        macd_val = macd_ind.macd().iloc[-1]
+        macd_signal = macd_ind.macd_signal().iloc[-1]
+        macd_hist = macd_ind.macd_diff().iloc[-1]
+        
+        macd_signal_type, macd_conf = self._classify_macd(macd_val, macd_signal, macd_hist)
+        macd_uri = graph.add_indicator(symbol, "MACD", macd_val, macd_signal_type, macd_conf,
+                                     {"timestamp": timestamp})
+        entities["uris"].append(macd_uri)
+        entities["signals"].append(macd_signal_type)
+        entities["confidences"].append(macd_conf * 0.25)
+        
+        # Stochastic Oscillator
+        stoch_ind = ta.momentum.StochasticOscillator(df["high"], df["low"], closes)
+        stoch_k = stoch_ind.stoch().iloc[-1]
+        stoch_d = stoch_ind.stoch_signal().iloc[-1]
+        
+        stoch_signal, stoch_conf = self._classify_stochastic(stoch_k, stoch_d)
+        stoch_uri = graph.add_indicator(symbol, "Stochastic", stoch_k, stoch_signal, stoch_conf,
+                                      {"timestamp": timestamp})
+        entities["uris"].append(stoch_uri)
+        entities["confidences"].append(stoch_conf * 0.25)
+        
+        # CCI (Commodity Channel Index)
+        cci_val = ta.trend.CCIIndicator(df["high"], df["low"], closes).cci().iloc[-1]
+        cci_signal, cci_conf = self._classify_cci(cci_val)
+        cci_uri = graph.add_indicator(symbol, "CCI", cci_val, cci_signal, cci_conf,
+                                    {"timestamp": timestamp})
+        entities["uris"].append(cci_uri)
+        entities["confidences"].append(cci_conf * 0.25)
+        
+        entities["avg_confidence"] = sum(entities["confidences"]) / len(entities["confidences"])
+        return entities
+    
+    def _extract_volume(self, symbol, df, graph, timestamp):
+        """Comprehensive volume profile: OBV, VWAP, MFI, CMF, ADL, ForceIndex."""
+        closes, vols = df["close"], df["volume"]
+        entities = {"uris": [], "profile": "neutral", "confidence": 0.5}
 
-        # Moving-average relationships
-        for period in [20, 50, 200]:
-            sma = closes.rolling(period).mean()
-            current, avg = closes.iloc[-1], sma.iloc[-1]
-            if current > avg * 1.02:
-                signal = "strong_above"
-            elif current > avg:
-                signal = "above"
-            elif current < avg * 0.98:
-                signal = "strong_below"
-            else:
-                signal = "below"
-            uri = graph.add_indicator(symbol, f"SMA_{period}", avg, signal)
-            entities["uris"].append(uri)
+        # OBV
+        obv_val = ta.volume.OnBalanceVolumeIndicator(closes, vols).on_balance_volume().iloc[-1]
+        obv_prev = df["OBV"].iloc[-5] if len(df) > 5 else obv_val
+        obv_signal = "accumulation" if obv_val > obv_prev else "distribution"
+        obv_conf = min(abs(obv_val - obv_prev) / abs(obv_prev), 1.0) if obv_prev != 0 else 0.5
 
-        # ADX Strength
-        adx_value = ta.trend.ADXIndicator(df["high"], df["low"], df["close"]).adx().iloc[-1]
-        if adx_value > 40:
-            strength = "very_strong"
-        elif adx_value > 25:
-            strength = "strong"
-        elif adx_value > 20:
-            strength = "moderate"
+        obv_uri = graph.add_indicator(symbol, "OBV", obv_val, obv_signal, obv_conf,
+                                    {"timestamp": timestamp})
+        entities["uris"].append(obv_uri)
+
+        # VWAP deviation
+        vwap_val = self._safe_get_value(df, "VWAP", df["close"].iloc[-1])
+        vwap_dev = (closes.iloc[-1] - vwap_val) / vwap_val
+        vwap_signal = "above_vwap" if vwap_dev > 0 else "below_vwap"
+        vwap_conf = min(abs(vwap_dev) * 10, 1.0)
+
+        vwap_uri = graph.add_indicator(symbol, "VWAP", vwap_val, vwap_signal, vwap_conf,
+                                     {"timestamp": timestamp})
+        entities["uris"].append(vwap_uri)
+
+        # MFI (Money Flow Index)
+        mfi_val = ta.volume.MFIIndicator(df["high"], df["low"], closes, vols).money_flow_index().iloc[-1]
+        mfi_signal, mfi_conf = self._classify_mfi(mfi_val)
+        mfi_uri = graph.add_indicator(symbol, "MFI", mfi_val, mfi_signal, mfi_conf,
+                                    {"timestamp": timestamp})
+        entities["uris"].append(mfi_uri)
+
+        # CMF (Chaikin Money Flow)
+        cmf_val = ta.volume.ChaikinMoneyFlowIndicator(df["high"], df["low"], closes, vols).chaikin_money_flow().iloc[-1]
+        cmf_signal = "accumulation" if cmf_val > 0 else "distribution"
+        cmf_conf = min(abs(cmf_val) * 5, 1.0)
+
+        cmf_uri = graph.add_indicator(symbol, "CMF", cmf_val, cmf_signal, cmf_conf,
+                                    {"timestamp": timestamp})
+        entities["uris"].append(cmf_uri)
+
+        # ADL (Accumulation/Distribution Line)
+        adl_val = self._safe_get_value(df, "ADL", 0.0)
+        adl_prev = self._safe_get_value(df, "ADL", adl_val, -5)
+        adl_signal = "accumulation" if adl_val > adl_prev else "distribution"
+        adl_conf = min(abs(adl_val - adl_prev) / abs(adl_prev), 1.0) if adl_prev != 0 else 0.5
+
+        adl_uri = graph.add_indicator(symbol, "ADL", adl_val, adl_signal, adl_conf,
+                                    {"timestamp": timestamp})
+        entities["uris"].append(adl_uri)
+
+        # Force Index - FIXED
+        fi_val = ta.volume.ForceIndexIndicator(closes, vols).force_index().iloc[-1]
+        fi_signal = "positive_force" if fi_val > 0 else "negative_force"
+
+        # Calculate FI confidence using a simpler approach
+        # Use a fixed threshold or relative to recent average
+        fi_series = ta.volume.ForceIndexIndicator(closes, vols).force_index().tail(20)
+        if len(fi_series) > 0:
+            fi_avg = abs(fi_series).mean()
+            fi_conf = min(abs(fi_val) / max(fi_avg, 1.0), 1.0)  # Avoid division by zero
         else:
-            strength = "weak"
-        uri = graph.add_indicator(symbol, "ADX", adx_value, strength)
-        entities["uris"].append(uri)
-        entities["trend_strength"] = strength
+            fi_conf = 0.5
+
+        fi_uri = graph.add_indicator(symbol, "ForceIndex", fi_val, fi_signal, fi_conf,
+                                   {"timestamp": timestamp})
+        entities["uris"].append(fi_uri)
+
+        # Aggregate volume profile
+        acc_signals = [obv_signal, cmf_signal, adl_signal]
+        acc_count = sum(1 for s in acc_signals if "accumulation" in s)
+        if acc_count >= 2:
+            entities["profile"] = "strong_accumulation"
+            entities["confidence"] = 0.8
+        elif "distribution" in acc_signals:
+            entities["profile"] = "distribution"
+            entities["confidence"] = 0.6
+
         return entities
 
-    def _extract_momentum_entities(self, symbol, df, graph):
-        """Encodes momentum indicators (RSI, MACD) into ontology triples."""
-        entities = {"uris": []}
-
-        # RSI logic
-        rsi_val = ta.momentum.RSIIndicator(df["close"]).rsi().iloc[-1]
-        if rsi_val < 20:
-            rsi_signal = "extremely_oversold"
-        elif rsi_val < 30:
-            rsi_signal = "oversold"
-        elif rsi_val > 80:
-            rsi_signal = "extremely_overbought"
-        elif rsi_val > 70:
-            rsi_signal = "overbought"
-        else:
-            rsi_signal = "neutral"
-        uri = graph.add_indicator(symbol, "RSI", rsi_val, rsi_signal)
-        entities["uris"].append(uri)
-
-        # MACD logic
-        exp1, exp2 = df["close"].ewm(span=12).mean(), df["close"].ewm(span=26).mean()
-        macd, signal_line = exp1 - exp2, (exp1 - exp2).ewm(span=9).mean()
-        macd_val, sig_val = macd.iloc[-1], signal_line.iloc[-1]
-        if macd_val > sig_val and macd_val > 0:
-            macd_signal = "strong_bullish"
-        elif macd_val > sig_val:
-            macd_signal = "bullish"
-        elif macd_val < sig_val and macd_val < 0:
-            macd_signal = "strong_bearish"
-        else:
-            macd_signal = "bearish"
-        uri = graph.add_indicator(symbol, "MACD", macd_val, macd_signal)
-        entities["uris"].append(uri)
-        entities["macd"] = macd_signal
-        return entities
-
-    def _extract_volume_entities(self, symbol, df, graph):
-        """Encodes volume-based accumulation/distribution indicators."""
-        entities = {"uris": []}
-        obv = ta.volume.OnBalanceVolumeIndicator(df["close"], df["volume"]).on_balance_volume()
-        now, prev = obv.iloc[-1], obv.iloc[-5] if len(df) > 5 else obv.iloc[-1]
-        if now > prev * 1.05:
-            vol_signal = "strong_accumulation"
-        elif now > prev:
-            vol_signal = "accumulation"
-        elif now < prev * 0.95:
-            vol_signal = "strong_distribution"
-        else:
-            vol_signal = "distribution"
-        uri = graph.add_indicator(symbol, "OBV", now, vol_signal)
-        entities["uris"].append(uri)
-        entities["volume_trend"] = vol_signal
-        return entities
-
-    def _extract_volatility_entities(self, symbol, df, graph):
-        """Encodes volatility regime (ATR%) indicators."""
-        entities = {"uris": []}
-        atr = ta.volatility.AverageTrueRange(df["high"], df["low"], df["close"]).average_true_range()
-        atr_pct = (atr.iloc[-1] / df["close"].iloc[-1]) * 100
+    def _extract_volatility(self, symbol, df, graph, timestamp):
+        """Volatility regime: ATR, Bollinger Bands width, CCI volatility."""
+        closes = df["close"]
+        entities = {"uris": [], "regime": "medium", "confidence": 0.5}
+        
+        # ATR%
+        atr_val = ta.volatility.AverageTrueRange(df["high"], df["low"], closes).average_true_range().iloc[-1]
+        atr_pct = (atr_val / closes.iloc[-1]) * 100
+        
         if atr_pct > 5:
-            vol_signal = "high"
+            vol_signal, vol_conf, regime = "high_volatility", 0.9, "high"
         elif atr_pct < 2:
-            vol_signal = "low"
+            vol_signal, vol_conf, regime = "low_volatility", 0.9, "low"
         else:
-            vol_signal = "medium"
-        uri = graph.add_indicator(symbol, "ATR%", atr_pct, vol_signal)
-        entities["uris"].append(uri)
-        entities["volatility"] = vol_signal
+            vol_signal, vol_conf, regime = "medium_volatility", 0.7, "medium"
+        
+        atr_uri = graph.add_indicator(symbol, "ATR%", atr_pct, vol_signal, vol_conf,
+                                    {"timestamp": timestamp})
+        entities["uris"].append(atr_uri)
+        entities["regime"] = regime
+        entities["confidence"] = vol_conf
+        
+        # Bollinger Bands squeeze/expansion
+        bb_width = (df["Upper_band"].iloc[-1] - df["Lower_band"].iloc[-1]) / df["SMA_20"].iloc[-1] if all(col in df.columns for col in ["Upper_band", "Lower_band", "SMA_20"]) else 0.1
+        if bb_width < 0.05:
+            bb_signal, bb_conf = "squeeze", 0.85
+        elif bb_width > 0.15:
+            bb_signal, bb_conf = "expansion", 0.7
+        else:
+            bb_signal, bb_conf = "normal", 0.5
+        
+        bb_uri = graph.add_indicator(symbol, "BollingerWidth", bb_width * 100, bb_signal, bb_conf,
+                                   {"timestamp": timestamp})
+        entities["uris"].append(bb_uri)
+        
         return entities
+        
+    def _extract_ichimoku(self, symbol, df, graph, timestamp):
+        """Ichimoku Cloud signals."""
+        entities = {"uris": [], "signals": []}
 
-    # ============================================================
-    # SEMANTIC INFERENCE RULES
-    # ============================================================
-    def _infer_market_state(self, t, m, v, vol):
-        if (
-            t.get("trend_strength") in ["strong", "very_strong"]
-            and m.get("macd") in ["bullish", "strong_bullish"]
-            and v.get("volume_trend") in ["accumulation", "strong_accumulation"]
-        ):
-            return MarketState.BULL_TREND
-        if (
-            t.get("trend_strength") in ["strong", "very_strong"]
-            and m.get("macd") in ["bearish", "strong_bearish"]
-            and v.get("volume_trend") in ["distribution", "strong_distribution"]
-        ):
-            return MarketState.BEAR_TREND
-        if vol.get("volatility") == "high":
-            return MarketState.VOLATILE_BREAKOUT
-        return MarketState.SIDEWAYS
+        # Check if Ichimoku columns exist, if not return empty
+        required_cols = ["Tenkan_sen", "Kijun_sen", "Senkou_span_a", "Senkou_span_b", "Chikou_span"]
+        if not all(col in df.columns for col in required_cols):
+            return entities
 
-    def _infer_trend_direction(self, t, m):
-        bullish_score = sum([
-            t.get("trend_strength") in ["strong", "very_strong"],
-            m.get("macd") in ["bullish", "strong_bullish"]
-        ])
-        bearish_score = sum([
-            m.get("macd") in ["bearish", "strong_bearish"],
-            t.get("trend_strength") == "weak"
-        ])
-        if bullish_score >= 2:
-            return TrendDirection.STRONG_UP
-        if bullish_score == 1:
-            return TrendDirection.MODERATE_UP
-        if bearish_score >= 2:
-            return TrendDirection.STRONG_DOWN
-        if bearish_score == 1:
-            return TrendDirection.MODERATE_DOWN
-        return TrendDirection.NEUTRAL
+        tenkan, kijun = df["Tenkan_sen"].iloc[-1], df["Kijun_sen"].iloc[-1]
+        senkou_a, senkou_b = df["Senkou_span_a"].iloc[-1], df["Senkou_span_b"].iloc[-1]
+        chikou = df["Chikou_span"].iloc[-26] if len(df) > 26 else df["close"].iloc[-1]
+        current = df["close"].iloc[-1]
 
-    def _infer_risk_level(self, vol, t):
-        if vol.get("volatility") == "high":
-            return RiskLevel.HIGH
-        if vol.get("volatility") == "medium":
-            return RiskLevel.MEDIUM
-        return RiskLevel.LOW
+        # TK cross
+        tk_signal = "bullish" if tenkan > kijun else "bearish"
+        tk_uri = graph.add_indicator(symbol, "Ichimoku_TK", tenkan - kijun, tk_signal, 0.7,
+                                   {"timestamp": timestamp})
+        entities["uris"].append(tk_uri)
+        
+        # Price vs Cloud
+        cloud_top, cloud_bottom = max(senkou_a, senkou_b), min(senkou_a, senkou_b)
+        if current > cloud_top:
+            price_signal, price_conf = "above_cloud", 0.85
+        elif current < cloud_bottom:
+            price_signal, price_conf = "below_cloud", 0.85
+        else:
+            price_signal, price_conf = "in_cloud", 0.5
+        
+        price_uri = graph.add_indicator(symbol, "Ichimoku_PriceVsCloud", current, price_signal, price_conf,
+                                      {"timestamp": timestamp})
+        entities["uris"].append(price_uri)
+        
+        # Lagging span
+        lag_signal = "bullish" if chikou > current else "bearish"
+        lag_uri = graph.add_indicator(symbol, "Ichimoku_Chikou", chikou, lag_signal, 0.6,
+                                    {"timestamp": timestamp})
+        entities["uris"].append(lag_uri)
+        
+        # Link confirmations
+        if tk_signal == price_signal == lag_signal:
+            for i in range(len(entities["uris"]) - 1):
+                graph.link_indicators(entities["uris"][i], entities["uris"][i+1], "confirms")
+        
+        return entities
+    
+    def _extract_fibonacci(self, symbol, df, graph, timestamp):
+        """Fibonacci retracement levels as dynamic support/resistance."""
+        entities = {"uris": []}
+        high, low = df["high"].max(), df["low"].min()
+        diff = high - low
+        
+        levels = {
+            "0%": high, "23.6%": high - 0.236 * diff, "38.2%": high - 0.382 * diff,
+            "50%": high - 0.5 * diff, "61.8%": high - 0.618 * diff, "100%": low
+        }
+        
+        current = df["close"].iloc[-1]
+        for name, level in levels.items():
+            proximity = abs(current - level) / current
+            conf = max(1 - proximity * 2, 0.2)
+            
+            lvl_uri = graph.add_indicator(symbol, f"Fib_{name}", level, 
+                                        "support_resistance", conf, {"timestamp": timestamp})
+            entities["uris"].append(lvl_uri)
+        
+        return entities
+    
+    def _calculate_sr_levels(self, df):
+        """Dynamic S/R using quantiles and recent pivots."""
+        recent = df.tail(30)
+        return {
+            "support": sorted([float(recent["low"].min()), 
+                             float(recent["low"].quantile(0.25)),  # REMOVED EXTRA PARENTHESIS
+                             float(recent["low"].quantile(0.1))]),
+            "resistance": sorted([float(recent["high"].max()),
+                                float(recent["high"].quantile(0.75)),
+                                float(recent["high"].quantile(0.9))], reverse=True)
+        }
+    # ============================================================
+    # WEIGHTED INFERENCE RULES
+    # ============================================================
+    
+    def _infer_market_state_weighted(self, extracts) -> Tuple[MarketState, float]:
+        """Weighted scoring across all evidence."""
+        scores = {state: 0.0 for state in MarketState}
+        confidences = {state: [] for state in MarketState}
+        
+        # Trend evidence
+        t = extracts["trend"]
+        if t.get("trend_strength") in ["strong", "very_strong"]:
+            if "bullish" in t.get("di_signal", ""):
+                scores[MarketState.BULL_TREND] += self.indicator_weights["trend"]
+                confidences[MarketState.BULL_TREND].append(t["avg_confidence"])
+            else:
+                scores[MarketState.BEAR_TREND] += self.indicator_weights["trend"]
+                confidences[MarketState.BEAR_TREND].append(t["avg_confidence"])
+        
+        # Momentum evidence
+        m = extracts["momentum"]
+        bullish_mom = sum(1 for s in m["signals"] if "bullish" in s)
+        bearish_mom = sum(1 for s in m["signals"] if "bearish" in s)
+        
+        if bullish_mom >= 2:
+            scores[MarketState.BULL_TREND] += self.indicator_weights["momentum"]
+            confidences[MarketState.BULL_TREND].append(m["avg_confidence"])
+        elif bearish_mom >= 2:
+            scores[MarketState.BEAR_TREND] += self.indicator_weights["momentum"]
+            confidences[MarketState.BEAR_TREND].append(m["avg_confidence"])
+        
+        # Volume evidence
+        v = extracts["volume"]
+        if "strong_accumulation" in v["profile"]:
+            scores[MarketState.BULL_TREND] += self.indicator_weights["volume"] * 1.5
+            confidences[MarketState.BULL_TREND].append(v["confidence"])
+        elif "distribution" in v["profile"]:
+            scores[MarketState.BEAR_TREND] += self.indicator_weights["volume"]
+            confidences[MarketState.BEAR_TREND].append(v["confidence"])
+        
+        # Volatility regime
+        vol = extracts["volatility"]
+        if vol["regime"] == "high":
+            scores[MarketState.VOLATILE_BREAKOUT] += self.indicator_weights["volatility"]
+            confidences[MarketState.VOLATILE_BREAKOUT].append(vol["confidence"])
+        elif vol["regime"] == "low" and max(scores.values()) < 0.3:
+            scores[MarketState.RANGE_BOUND] += self.indicator_weights["volatility"]
+            confidences[MarketState.RANGE_BOUND].append(vol["confidence"])
+        
+        # Select winner
+        winning_state = max(scores.items(), key=lambda x: x[1])[0] if scores else MarketState.SIDEWAYS_CONSOLIDATION
+        avg_conf = sum(confidences.get(winning_state, [0.5])) / max(len(confidences.get(winning_state, [])), 1)
+        
+        return winning_state, avg_conf
+    
+    def _infer_trend_direction_weighted(self, extracts) -> Tuple[TrendDirection, float]:
+        """Multi-factor trend direction scoring."""
+        bullish_score = 0.0
+        total_conf = 0.0
+        
+        # Trend indicators
+        t = extracts["trend"]
+        if t.get("trend_strength") == "very_strong":
+            bullish_score += 2.0
+            total_conf += t["avg_confidence"]
+        elif t.get("trend_strength") == "strong":
+            bullish_score += 1.5
+            total_conf += t["avg_confidence"]
+        
+        # Momentum
+        m = extracts["momentum"]
+        bullish_mom = sum(1 for s in m["signals"] if "bullish" in s)
+        bullish_score += bullish_mom * 0.8
+        total_conf += m["avg_confidence"]
+        
+        # Ichimoku
+        ich = extracts.get("ichimoku", {})
+        if ich.get("signals", []).count("bullish") >= 2:
+            bullish_score += 1.2
+        
+        # Volume confirmation
+        v = extracts["volume"]
+        if "accumulation" in v["profile"]:
+            bullish_score += 0.5
+        
+        # Determine direction
+        if bullish_score >= 3.0:
+            direction = TrendDirection.STRONG_UP
+        elif bullish_score >= 1.5:
+            direction = TrendDirection.MODERATE_UP
+        elif bullish_score <= -3.0:
+            direction = TrendDirection.STRONG_DOWN
+        elif bullish_score <= -1.5:
+            direction = TrendDirection.MODERATE_DOWN
+        else:
+            direction = TrendDirection.NEUTRAL
+        
+        avg_conf = total_conf / 3 if total_conf > 0 else 0.5
+        return direction, avg_conf
+    
+    def _infer_risk_level_weighted(self, extracts) -> Tuple[RiskLevel, float]:
+        """Multi-dimensional risk assessment."""
+        risk_score = 0.0
+        confidences = []
+        
+        # Volatility risk (primary factor)
+        vol = extracts["volatility"]
+        if vol["regime"] == "high":
+            risk_score += 4.0
+            confidences.append(vol["confidence"])
+        elif vol["regime"] == "medium":
+            risk_score += 2.0
+            confidences.append(vol["confidence"])
+        
+        # Trend risk (counter-trend increases risk)
+        t = extracts["trend"]
+        if t.get("trend_strength") == "weak":
+            risk_score += 1.0
+            confidences.append(0.6)
+        
+        # Momentum exhaustion risk
+        m = extracts["momentum"]
+        if "overbought" in m["signals"] or "oversold" in m["signals"]:
+            risk_score += 1.5
+            confidences.append(0.7)
+        
+        # Map to RiskLevel
+        if risk_score >= 4.5:
+            level = RiskLevel.VERY_HIGH
+        elif risk_score >= 3.5:
+            level = RiskLevel.HIGH
+        elif risk_score >= 2.5:
+            level = RiskLevel.MEDIUM
+        elif risk_score >= 1.5:
+            level = RiskLevel.LOW
+        else:
+            level = RiskLevel.VERY_LOW
+        
+        avg_conf = sum(confidences) / len(confidences) if confidences else 0.5
+        return level, avg_conf
+    
+    # ============================================================
+    # SIGNAL CLASSIFICATION HELPERS
+    # ============================================================
+    
+    def _classify_ma_signal(self, current, ma_value, threshold: float = 0.02):
+        """Classifies price vs MA relationship."""
+        deviation = (current - ma_value) / ma_value
+        if deviation > threshold:
+            return "strong_above", min(deviation * 2, 1.0)
+        elif deviation > 0:
+            return "above", deviation * 1.5
+        elif deviation < -threshold:
+            return "strong_below", min(abs(deviation) * 2, 1.0)
+        else:
+            return "below", abs(deviation) * 1.5
+    
+    def _classify_adx(self, value: float) -> Tuple[str, float]:
+        if value > 40:
+            return "very_strong", 0.95
+        elif value > 25:
+            return "strong", 0.8
+        elif value > 20:
+            return "moderate", 0.6
+        return "weak", 0.4
+    
+    def _classify_rsi(self, value: float) -> Tuple[str, float]:
+        if value > 80:
+            return "extremely_overbought", 0.95
+        elif value > 70:
+            return "overbought", 0.8
+        elif value < 20:
+            return "extremely_oversold", 0.95
+        elif value < 30:
+            return "oversold", 0.8
+        return "neutral", 0.5
+    
 
-    # ============================================================
-    # SUPPORT / RESISTANCE DETECTION
-    # ============================================================
-    def _calculate_support_levels(self, df):
-        lows = df["low"].tail(50)
-        return [float(x) for x in [lows.min(), lows.quantile(0.25), lows.quantile(0.1)] if not np.isnan(x)]
+# Add this import at the top:
 
-    def _calculate_resistance_levels(self, df):
-        highs = df["high"].tail(50)
-        return [float(x) for x in [highs.max(), highs.quantile(0.75), highs.quantile(0.9)] if not np.isnan(x)]
+    def _classify_macd(self, macd: float, signal: float, hist: float) -> Tuple[str, float]:
+        # Use a simple threshold instead of quantile on a single value
+        strength = "strong_" if abs(hist) > 0.02 else ""  # Example threshold
+        if macd > signal and macd > 0:
+            return f"{strength}bullish", 0.85 if "strong" in strength else 0.6
+        elif macd < signal and macd < 0:
+            return f"{strength}bearish", 0.85 if "strong" in strength else 0.6
+        return "neutral", 0.4
 
+    def _classify_stochastic(self, k: float, d: float) -> Tuple[str, float]:
+        if k > 80 and d > 80:
+            return "overbought", 0.8
+        elif k < 20 and d < 20:
+            return "oversold", 0.8
+        elif k > d and k < 50:
+            return "bullish_cross", 0.7
+        elif k < d and k > 50:
+            return "bearish_cross", 0.7
+        return "neutral", 0.5
+    
+    def _classify_mfi(self, value: float) -> Tuple[str, float]:
+        return self._classify_rsi(value)  # Similar logic
+    
+    def _classify_cci(self, value: float) -> Tuple[str, float]:
+        if value > 100:
+            return "overbought", 0.7
+        elif value < -100:
+            return "oversold", 0.7
+        return "neutral", 0.5
+    
     # ============================================================
-    # SEMANTIC CLASSIFIERS
+    # DYNAMIC REASONING TRACE
     # ============================================================
-    def _classify_volatility_regime(self, v):
-        return f"{v.get('volatility', 'medium')}_volatility"
-
-    def _classify_volume_profile(self, v):
-        return v.get("volume_trend", "neutral")
-
-    # ============================================================
-    # REASONING TRACE (Explainability Layer)
-    # ============================================================
-    def _build_reasoning_chain(
-        self, symbol, market_state, trend_direction, risk_level,
-        trend_entities, momentum_entities, volume_entities,
-        volatility_entities, support_levels, resistance_levels
-    ) -> List[str]:
+    
+    def _build_dynamic_reasoning(self, symbol, extracts, market_state, trend_direction,
+                               risk_level, contradictions, confidence) -> List[str]:
+        """Generates trace from actual evidence weights."""
         chain = [
-            f"Symbol analyzed: {symbol}",
-            f"Inferred Market State: {market_state.value}",
-            f"Trend Direction: {trend_direction.value}",
-            f"Risk Level: {risk_level.value}"
+            f"Analysis for {symbol} at {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            f"Overall Confidence: {confidence:.1%}",
+            f"Market State: {market_state.value.replace('_', ' ').title()} (Score: {self._format_confidence(confidence)})"
         ]
-
-        # Market state justification
-        if market_state == MarketState.BULL_TREND:
-            chain.append("Condition met: strong trend strength + bullish MACD + accumulation volume.")
-        elif market_state == MarketState.BEAR_TREND:
-            chain.append("Condition met: strong trend strength + bearish MACD + distribution volume.")
-        elif market_state == MarketState.VOLATILE_BREAKOUT:
-            chain.append("Condition met: ATR% > 5% — high volatility breakout regime.")
-        else:
-            chain.append("Condition met: mixed indicators → neutral/sideways market.")
-
+        
+        # Add top evidence
+        top_evidence = []
+        for category, data in extracts.items():
+            if "avg_confidence" in data and data["avg_confidence"] > 0.7:
+                top_evidence.append(f"- {category.title()}: High confidence signals")
+        
+        if top_evidence:
+            chain.append("Key Evidence:")
+            chain.extend(top_evidence)
+        
+        # Contradictions
+        if contradictions:
+            chain.append(f"⚠️ Detected {len(contradictions)} indicator contradictions")
+        
         # Risk justification
-        if risk_level == RiskLevel.HIGH:
-            chain.append("ATR% exceeds dynamic threshold → elevated risk.")
-        elif risk_level == RiskLevel.MEDIUM:
-            chain.append("Moderate volatility observed → medium risk.")
-        else:
-            chain.append("Stable volatility → low systemic risk.")
-
-        # Support / Resistance summary
-        if support_levels:
-            chain.append(f"Support levels (last 50 bars): {', '.join(f'{s:.2f}' for s in support_levels)}")
-        if resistance_levels:
-            chain.append(f"Resistance levels (last 50 bars): {', '.join(f'{r:.2f}' for r in resistance_levels)}")
-
+        chain.append(f"Risk Assessment: {risk_level.value.replace('_', ' ').title()}")
+        
         return chain
-
-    # ============================================================
-    # DEFAULT CONTEXT FALLBACK
-    # ============================================================
+    
+    def _format_confidence(self, conf: float) -> str:
+        if conf > 0.8:
+            return "Very High"
+        elif conf > 0.6:
+            return "High"
+        elif conf > 0.4:
+            return "Moderate"
+        return "Low"
+    
     def _default_context(self):
         return MarketContext(
-            market_state=MarketState.SIDEWAYS,
+            market_state=MarketState.SIDEWAYS_CONSOLIDATION,
             trend_direction=TrendDirection.NEUTRAL,
             risk_level=RiskLevel.MEDIUM,
+            confidence_score=0.0,
             volatility_regime="unknown",
             volume_profile="unknown",
             support_levels=[],
             resistance_levels=[],
             ontology_graph="",
-            reasoning_chain=["Insufficient data (need ≥ 50 bars)."]
+            reasoning_chain=["Insufficient data (need ≥ 50 bars)."],
+            contradictions=[]
         )
-
-    # ============================================================
-    # SUMMARY INTERFACE (for Dash / API / Patent Docs)
-    # ============================================================
+    
     def generate_summary(self, symbol: str, df: pd.DataFrame):
-        """Public entry for summarizing reasoning results."""
+        """Unchanged interface for backward compatibility."""
         ctx = self.infer_market_context(symbol, df)
         return {
             "market_context": {
@@ -526,9 +970,11 @@ class EnhancedStockAnalysisOntology:
                 "volume_profile": ctx.volume_profile,
                 "support_levels": ctx.support_levels,
                 "resistance_levels": ctx.resistance_levels,
+                "confidence": ctx.confidence_score
             },
             "ontology_graph": ctx.ontology_graph,
-            "reasoning_chain": ctx.reasoning_chain
+            "reasoning_chain": ctx.reasoning_chain,
+            "contradictions": ctx.contradictions
         }
 # ============================================================
 # PART 3: DATA FETCHING, INDICATOR COMPUTATION & DASH LAYOUT
@@ -568,49 +1014,58 @@ def compute_indicators(df: pd.DataFrame) -> pd.DataFrame:
     """
     log_step("Computing technical indicators…")
     closes, highs, lows, vols = df["close"], df["high"], df["low"], df["volume"]
+    
+    # Make a copy to avoid modifying original
+    result_df = df.copy()
 
-    # ── Moving Averages (Trend Layer)
-    for w in [8, 20, 50, 200]:
-        df[f"SMA_{w}"] = closes.rolling(w).mean()
-        df[f"EMA_{w}"] = closes.ewm(span=w, adjust=False).mean()
+    try:
+        # ── Moving Averages (Trend Layer)
+        for w in [8, 20, 50, 200]:
+            result_df[f"SMA_{w}"] = closes.rolling(w).mean()
+            result_df[f"EMA_{w}"] = closes.ewm(span=w, adjust=False).mean()
 
-    # ── Momentum Indicators
-    df["RSI"] = ta.momentum.RSIIndicator(closes).rsi()
+        # ── Momentum Indicators
+        result_df["RSI"] = ta.momentum.RSIIndicator(closes).rsi()
 
-    macd = ta.trend.MACD(closes)
-    df["MACD"], df["MACD_Signal"] = macd.macd(), macd.macd_signal()
+        macd = ta.trend.MACD(closes)
+        result_df["MACD"], result_df["MACD_Signal"] = macd.macd(), macd.macd_signal()
 
-    stoch = ta.momentum.StochasticOscillator(highs, lows, closes)
-    df["%K"], df["%D"] = stoch.stoch(), stoch.stoch_signal()
+        stoch = ta.momentum.StochasticOscillator(highs, lows, closes)
+        result_df["%K"], result_df["%D"] = stoch.stoch(), stoch.stoch_signal()
 
-    # ── Volatility Indicators
-    ma20, std20 = closes.rolling(20).mean(), closes.rolling(20).std()
-    df["Upper_band"], df["Lower_band"] = ma20 + 2 * std20, ma20 - 2 * std20
-    df["ATR"] = ta.volatility.AverageTrueRange(highs, lows, closes).average_true_range()
-    df["CCI"] = ta.trend.CCIIndicator(highs, lows, closes).cci()
+        # ── Volatility Indicators
+        ma20, std20 = closes.rolling(20).mean(), closes.rolling(20).std()
+        result_df["Upper_band"], result_df["Lower_band"] = ma20 + 2 * std20, ma20 - 2 * std20
+        result_df["ATR"] = ta.volatility.AverageTrueRange(highs, lows, closes).average_true_range()
+        result_df["CCI"] = ta.trend.CCIIndicator(highs, lows, closes).cci()
 
-    # ── Volume Indicators
-    df["OBV"] = ta.volume.OnBalanceVolumeIndicator(closes, vols).on_balance_volume()
-    df["VWAP"] = (closes * vols).cumsum() / vols.cumsum()
-    df["ADL"] = ta.volume.AccDistIndexIndicator(highs, lows, closes, vols).acc_dist_index()
-    df["MFI"] = ta.volume.MFIIndicator(highs, lows, closes, vols).money_flow_index()
-    df["CMF"] = ta.volume.ChaikinMoneyFlowIndicator(highs, lows, closes, vols).chaikin_money_flow()
-    df["FI"]  = ta.volume.ForceIndexIndicator(closes, vols).force_index()
+        # ── Volume Indicators
+        result_df["OBV"] = ta.volume.OnBalanceVolumeIndicator(closes, vols).on_balance_volume()
+        result_df["VWAP"] = (closes * vols).cumsum() / vols.cumsum()
+        result_df["ADL"] = ta.volume.AccDistIndexIndicator(highs, lows, closes, vols).acc_dist_index()
+        result_df["MFI"] = ta.volume.MFIIndicator(highs, lows, closes, vols).money_flow_index()
+        result_df["CMF"] = ta.volume.ChaikinMoneyFlowIndicator(highs, lows, closes, vols).chaikin_money_flow()
+        result_df["FI"]  = ta.volume.ForceIndexIndicator(closes, vols).force_index()
 
-    # ── Trend Strength Indicators
-    adx = ta.trend.ADXIndicator(highs, lows, closes)
-    df["ADX"], df["DI+"], df["DI-"] = adx.adx(), adx.adx_pos(), adx.adx_neg()
+        # ── Trend Strength Indicators
+        adx = ta.trend.ADXIndicator(highs, lows, closes)
+        result_df["ADX"], result_df["DI+"], result_df["DI-"] = adx.adx(), adx.adx_pos(), adx.adx_neg()
 
-    # ── Ichimoku Cloud (Support/Resistance Layer)
-    df["Tenkan_sen"]   = (highs.rolling(9).max() + lows.rolling(9).min()) / 2
-    df["Kijun_sen"]    = (highs.rolling(26).max() + lows.rolling(26).min()) / 2
-    df["Senkou_span_a"] = ((df["Tenkan_sen"] + df["Kijun_sen"]) / 2).shift(26)
-    df["Senkou_span_b"] = ((highs.rolling(52).max() + lows.rolling(52).min()) / 2).shift(26)
-    df["Chikou_span"]   = closes.shift(-26)
+        # ── Ichimoku Cloud (Support/Resistance Layer)
+        result_df["Tenkan_sen"]   = (highs.rolling(9).max() + lows.rolling(9).min()) / 2
+        result_df["Kijun_sen"]    = (highs.rolling(26).max() + lows.rolling(26).min()) / 2
+        result_df["Senkou_span_a"] = ((result_df["Tenkan_sen"] + result_df["Kijun_sen"]) / 2).shift(26)
+        result_df["Senkou_span_b"] = ((highs.rolling(52).max() + lows.rolling(52).min()) / 2).shift(26)
+        result_df["Chikou_span"]   = closes.shift(-26)
 
-    log_step("Indicators computed successfully.")
-    return df
+        log_step("Indicators computed successfully.")
+        
+    except Exception as e:
+        log_step(f"Warning: Some indicators failed to compute: {e}")
+        # Return at least the basic computed indicators
+        pass
 
+    return result_df
 
 # ─────────────────────────────────────────────
 # Dash Application Setup
@@ -1068,4 +1523,4 @@ def update_graphs(n_clicks, ticker, time_range, interval, analysis_mode):
 # ─────────────────────────────────────────────
 if __name__ == "__main__":
     log_step("🚀 Launching Ontology-Driven Stock Dashboard (Final Patent Version)…")
-    app.run_server(debug=False)
+    app.run_server(debug=False, port=8050)
